@@ -44,7 +44,7 @@ book-manager/
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-username/book-manager.git
+git clone https://github.com/shebinbalan/go-my-sql-crud-first-project.git
 cd book-manager
 2. Run the backend
 
