@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>➕ Add New Book</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .is-invalid + .invalid-feedback { display: block; }
+    #coverPreview { max-height: 200px; display: none; margin-top: 10px; }
+    .loading { opacity: 0.6; pointer-events: none; }
+  </style>
+</head>
+<body class="bg-light">
+
+<div class="container my-5">
+  <h2 class="text-center mb-4">➕ Add New Book</h2>
+  <form id="createForm" class="bg-white p-4 shadow rounded needs-validation" novalidate>
+    <div class="mb-3">
+      <label for="title" class="form-label">📖 Title *</label>
+      <input type="text" id="title" class="form-control" required minlength="2" maxlength="255">
+      <div class="invalid-feedback">Please enter a valid title (2-255 characters).</div>
+    </div>
+    <div class="mb-3">
+      <label for="author" class="form-label">✍️ Author *</label>
+      <input type="text" id="author" class="form-control" required minlength="2" maxlength="255">
+      <div class="invalid-feedback">Please enter a valid author (2-255 characters).</div>
+    </div>
+    <div class="mb-3">
+      <label for="genre" class="form-label">🎭 Genre</label>
+      <input type="text" id="genre" class="form-control" placeholder="e.g. Fiction, History" maxlength="100">
+    </div>
+    <div class="mb-3">
+      <label for="tags" class="form-label">🏷️ Tags (comma-separated)</label>
+      <input type="text" id="tags" class="form-control" placeholder="e.g. classic, thriller, award-winning" maxlength="500">
+    </div>
+    <div class="mb-3">
+      <label for="tags" class="form-label">🏷️ Description</label>
+      <textarea id="description"  id="description"  class="form-control" rows="3"></textarea>
+      
+    </div>
+    <div class="mb-3">
+      <label for="cover" class="form-label">🖼️ Upload Cover Image</label>
+      <input type="file" id="cover" class="form-control" accept="image/*">
+      <div class="form-text">Maximum file size: 5MB. Supported formats: JPG, PNG, GIF, WebP</div>
+      <img id="coverPreview" class="rounded" />
+    </div>
+    <div class="d-flex justify-content-between">
+      <a href="index.html" class="btn btn-secondary">← Back</a>
+      <button type="submit" id="submitBtn" class="btn btn-success">
+        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+        ✅ Add Book
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- ✅ Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-success">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">✅ Book Added</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">The book was successfully added to the library.</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" onclick="window.location.href='index.html'">Go to Library</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ❌ Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">❌ Error</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="errorMessage">Failed to add the book.</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Check authentication
+if (!localStorage.getItem("token")) {
+  alert("⚠️ Please login first.");
+  window.location.href = "login.html";
+}
+
+const titleInput = document.getElementById("title");
+const authorInput = document.getElementById("author");
+const genreInput = document.getElementById("genre");
+const tagsInput = document.getElementById("tags");
+const coverInput = document.getElementById("cover");
+const descriptionInput = document.getElementById("description");
+const coverPreview = document.getElementById("coverPreview");
+const submitBtn = document.getElementById("submitBtn");
+const form = document.getElementById("createForm");
+
+// Preview image
+coverInput.addEventListener("change", () => {
+  const file = coverInput.files[0];
+  if (file) {
+    // Validate file size
+    if (file.size > 5 * 1024 * 1024) {
+      alert("❌ File size too large. Maximum size is 5MB.");
+      coverInput.value = "";
+      coverPreview.style.display = "none";
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert("❌ Please select a valid image file.");
+      coverInput.value = "";
+      coverPreview.style.display = "none";
+      return;
+    }
+    
+    coverPreview.src = URL.createObjectURL(file);
+    coverPreview.style.display = "block";
+  } else {
+    coverPreview.style.display = "none";
+  }
+});
+
+// Upload cover image to backend
+async function uploadCover() {
+  const file = coverInput.files[0];
+  if (!file) return null;
+
+  const formData = new FormData();
+  formData.append("cover", file);
+
+  const res = await fetch("/upload", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + localStorage.getItem("token") },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "❌ Failed to upload cover image.");
+  }
+  
+  const data = await res.json();
+  return data.filename;
+}
+
+// Form validation
+function validateForm() {
+  let isValid = true;
+  
+  // Reset validation states
+  titleInput.classList.remove("is-invalid");
+  authorInput.classList.remove("is-invalid");
+  
+  const title = titleInput.value.trim();
+  const author = authorInput.value.trim();
+  
+  if (title.length < 2 || title.length > 255) {
+    titleInput.classList.add("is-invalid");
+    isValid = false;
+  }
+  
+  if (author.length < 2 || author.length > 255) {
+    authorInput.classList.add("is-invalid");
+    isValid = false;
+  }
+  
+  return isValid;
+}
+
+// Set loading state
+function setLoading(loading) {
+  if (loading) {
+    form.classList.add("loading");
+    submitBtn.disabled = true;
+    submitBtn.querySelector(".spinner-border").classList.remove("d-none");
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Adding...';
+  } else {
+    form.classList.remove("loading");
+    submitBtn.disabled = false;
+    submitBtn.querySelector(".spinner-border").classList.add("d-none");
+    submitBtn.innerHTML = "✅ Add Book";
+  }
+}
+
+// Form submission
+form.addEventListener("submit", async function (e) {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+
+  const title = titleInput.value.trim();
+  const author = authorInput.value.trim();
+  const genre = genreInput.value.trim();
+  const tags = tagsInput.value.trim();
+  const description= descriptionInput.value.trim();
+
+  setLoading(true);
+
+  try {
+    // Upload cover first if selected
+    let coverFilename = null;
+    if (coverInput.files[0]) {
+      coverFilename = await uploadCover();
+    }
+
+    // Create book object
+    const book = { 
+      title, 
+      author, 
+      genre, 
+      tags, 
+      description,
+      cover: coverFilename || "" 
+    };
+
+    // Submit book data
+    const res = await fetch("/books", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + localStorage.getItem("token")
+      },
+      body: JSON.stringify(book)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Something went wrong");
+    }
+
+    // Success
+    new bootstrap.Modal(document.getElementById("successModal")).show();
+    
+    // Reset form
+    form.reset();
+    coverPreview.style.display = "none";
+    titleInput.classList.remove("is-invalid");
+    authorInput.classList.remove("is-invalid");
+    
+  } catch (err) {
+    console.error("Error adding book:", err);
+    document.getElementById("errorMessage").textContent = err.message || "❌ Failed to add book.";
+    new bootstrap.Modal(document.getElementById("errorModal")).show();
+  } finally {
+    setLoading(false);
+  }
+});
+
+// Real-time validation
+titleInput.addEventListener("input", () => {
+  if (titleInput.value.trim().length >= 2) {
+    titleInput.classList.remove("is-invalid");
+  }
+});
+
+authorInput.addEventListener("input", () => {
+  if (authorInput.value.trim().length >= 2) {
+    authorInput.classList.remove("is-invalid");
+  }
+});
+</script>
+
+</body>
+</html>
