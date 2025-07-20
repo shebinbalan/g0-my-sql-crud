@@ -498,15 +498,28 @@ func updateBook(c *gin.Context) {
 func deleteBook(c *gin.Context) {
 	id := c.Param("id")
 	var book Book
+
+	// Step 1: Find the book by ID
 	if err := DB.First(&book, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
 		return
 	}
 
+	// Step 2: Delete cover image file if exists
+	if book.Cover != "" {
+		imagePath := filepath.Join("static/covers", book.Cover)
+		if err := os.Remove(imagePath); err != nil && !os.IsNotExist(err) {
+			// Log the error, but don't fail the whole operation
+			fmt.Printf("⚠️ Failed to delete image: %v\n", err)
+		}
+	}
+
+	// Step 3: Delete the book from DB
 	if err := DB.Delete(&book).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete book"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "✅ Book deleted successfully"})
+	// Step 4: Respond success
+	c.JSON(http.StatusOK, gin.H{"message": "✅ Book and cover image deleted successfully"})
 }
